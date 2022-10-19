@@ -2,7 +2,7 @@ trigger:
 - main
 
 jobs:
-- job: Build and Deploy
+- job: Publish
 
   pool:
     vmImage: ubuntu-latest
