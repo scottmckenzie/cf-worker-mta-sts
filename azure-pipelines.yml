@@ -32,10 +32,10 @@ jobs:
       ConvertTo-Json -Compress $ns
 
       # create KV binding
-      $binding = ConvertTo-Json -AsArray -Compress @{binding='KV_DOMAIN'; id=$ns.id}
-      $binding
       echo "[env.production]" >> wrangler.toml
-      echo "kv_namespaces = $binding" >> wrangler.toml
+      $binding = "kv_namespaces = [{binding=\"KV_DOMAIN\", id=\"$($ns.id)\"}]"
+      $binding
+      echo $binding >> wrangler.toml
       
       # create routes for each domain in KV
       $routes = @()
@@ -43,15 +43,16 @@ jobs:
       $domains
       $domains = ($domains | ConvertFrom-Json).name
       $domains
-      foreach ($domain in $domains) {
-        $routes += @{
-          custom_domain = $true
-          pattern = "mta-sts.$domain"
-          zone_name = $domain
+      echo "routes = [" >> wrangler.toml
+      for ($i=0 $i -lt $domains.Count; $i++) {
+        $route = "  { custom_domain = true, pattern = \"mta-sts.$domain\", zone_name = \"$domain\" },"
+        if ($i -eq $domains.Count - 1) {
+          # remove trailing comma
+          $route = $route -replace '.$'
         }
+        echo $route >> wrangler.toml
       }
-      $routes = ConvertTo-Json -AsArray $routes
-      echo "route = $routes" >> wrangler.toml
+      echo "]" >> wrangler.toml
 
       # wrangler publish
       cat wrangler.toml
