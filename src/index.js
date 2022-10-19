@@ -34,7 +34,7 @@ export default {
 		domain.mx.forEach(function(mx) {
 			body += `mx: ${mx}\n`;
 		});
-		body += 'max_age: 604800'
+		body += 'max_age: 604800\n'
 		return textResponse(body);
 	}
 }
