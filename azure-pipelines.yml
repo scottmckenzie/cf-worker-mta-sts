@@ -29,15 +29,18 @@ jobs:
       if ($null -eq $ns) {
         throw
       }
+      ConvertTo-Json -Compress $ns
 
       # create KV binding
       $binding = ConvertTo-Json -AsArray -Compress @{binding='KV_DOMAIN'; id=$ns.id}
+      $binding
       echo "[env.production]" >> wrangler.toml
       echo "kv_namespaces = $binding" >> wrangler.toml
       
       # create routes for each domain in KV
       $routes = @()
       $domains = (npx wrangler kv:key list --namespace-id $ns.id | ConvertFrom-Json).name
+      $domains
       foreach ($domain in $domains) {
         $routes += @{
           custom_domain = $true
