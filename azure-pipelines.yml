@@ -31,7 +31,7 @@ jobs:
       }
 
       # create KV binding
-      echo "[env.production]" >> wrangler.toml
+      echo "[env.prd]" >> wrangler.toml
       echo "kv_namespaces = [{binding=`"KV_DOMAIN`", id=`"$($ns.id)`"}]" >> wrangler.toml
 
       # create routes for each domain in KV
@@ -54,7 +54,7 @@ jobs:
       echo "--"
 
       # publish worker
-      npx wrangler publish -e production
+      npx wrangler publish --env prd
     env:
       CLOUDFLARE_ACCOUNT_ID: $(AccountId)
       CLOUDFLARE_API_TOKEN: $(ApiToken)
