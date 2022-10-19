@@ -31,7 +31,7 @@ jobs:
       }
 
       # create KV binding
-      $binding = ConvertTo-Json -AsArray -Compress @{binding='KV_DOMAIN'; id$ns.id}
+      $binding = ConvertTo-Json -AsArray -Compress @{binding='KV_DOMAIN'; id=$ns.id}
       echo "[env.production]" >> wrangler.toml
       echo "kv_namespaces = $binding" >> wrangler.toml
       
