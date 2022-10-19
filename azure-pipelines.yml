@@ -1,0 +1,54 @@
+trigger:
+- main
+
+jobs:
+- job: Build and Deploy
+
+  pool:
+    vmImage: ubuntu-latest
+
+  variables:
+  - group: secrets
+
+  steps:
+  
+  - checkout: self
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '>=16.18.0'
+  
+  - task: Npm@1
+    inputs: install wrangler
+  
+  - pwsh: |
+      $ get namespace
+      $null = wrangler kv:namespace create KV_DOMAIN
+      $ns = wrangler kv:namespace list | ConvertFrom-Json | Where-Object title -match 'KV_DOMAIN'
+      if ($null -eq $ns) {
+        throw
+      }
+
+      # create KV binding
+      $binding = ConvertTo-Json -AsArray -Compress @{binding='KV_DOMAIN'; id$ns.id}
+      echo "[env.production]" >> wrangler.toml
+      echo "kv_namespaces = $binding" >> wrangler.toml
+      
+      # create routes for each domain in KV
+      $routes = @()
+      $domains = (wrangler kv:key list --namespace-id $ns.id | ConvertFrom-Json).name
+      foreach ($domain in $domains) {
+        $routes += @{
+          custom_domain = $true
+          pattern = "mta-sts.$domain"
+          zone_name = $domain
+        }
+      }
+      $routes = ConvertTo-Json -AsArray $routes
+      echo "route = $routes" >> wrangler.toml
+
+      # wrangler publish
+      cat wrangler.toml
+    env:
+      CLOUDFLARE_ACCOUNT_ID: $(AccountId)
+      CLOUDFLARE_API_TOKEN: $(ApiToken)
