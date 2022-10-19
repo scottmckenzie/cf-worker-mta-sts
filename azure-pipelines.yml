@@ -29,20 +29,13 @@ jobs:
       if ($null -eq $ns) {
         throw
       }
-      ConvertTo-Json -Compress $ns
 
       # create KV binding
       echo "[env.production]" >> wrangler.toml
-      $binding = "kv_namespaces = [{binding=`"KV_DOMAIN`", id=`"$($ns.id)`"}]"
-      $binding
-      echo $binding >> wrangler.toml
+      echo "kv_namespaces = [{binding=`"KV_DOMAIN`", id=`"$($ns.id)`"}]" >> wrangler.toml
       
       # create routes for each domain in KV
-      $routes = @()
-      $domains = npx wrangler kv:key list --namespace-id $ns.id
-      $domains
-      $domains = ($domains | ConvertFrom-Json).name
-      $domains
+      $domains = (npx wrangler kv:key list --namespace-id $ns.id | ConvertFrom-Json).name
       echo "routes = [" >> wrangler.toml
       for ($i=0; $i -lt $domains.Count; $i++) {
         $route = "  { custom_domain = true, pattern = `"mta-sts.$domain`", zone_name = `"$domain`" },"
@@ -54,8 +47,13 @@ jobs:
       }
       echo "]" >> wrangler.toml
 
-      # wrangler publish
+      # display contents of wrangler.toml
+      echo "--"
       cat wrangler.toml
+      echo "--"
+      
+      # publish worker
+      npx wrangler publish
     env:
       CLOUDFLARE_ACCOUNT_ID: $(AccountId)
       CLOUDFLARE_API_TOKEN: $(ApiToken)
