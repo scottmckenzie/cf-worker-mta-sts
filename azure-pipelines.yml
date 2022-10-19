@@ -54,7 +54,7 @@ jobs:
       echo "--"
 
       # publish worker
-      npx wrangler publish
+      npx wrangler publish -e production
     env:
       CLOUDFLARE_ACCOUNT_ID: $(AccountId)
       CLOUDFLARE_API_TOKEN: $(ApiToken)
