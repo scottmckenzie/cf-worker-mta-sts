@@ -19,7 +19,8 @@ jobs:
       versionSpec: '>=16.18.0'
   
   - task: Npm@1
-    inputs: install wrangler
+    inputs:
+      command: install
   
   - pwsh: |
       $ get namespace
