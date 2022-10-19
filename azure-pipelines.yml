@@ -23,11 +23,13 @@ jobs:
       command: install
   
   - pwsh: |
+      $ErrorActionPreferenc = 'Stop'
+
       # get namespace
       $null = npx wrangler kv:namespace create KV_DOMAIN
       $ns = npx wrangler kv:namespace list | ConvertFrom-Json | Where-Object title -match 'KV_DOMAIN'
       if ($null -eq $ns) {
-        throw
+        Write-Error 'Could not find KV_DOMAIN namespace'
       }
 
       # create KV binding
@@ -36,6 +38,9 @@ jobs:
 
       # create routes for each domain in KV
       $domains = @((npx wrangler kv:key list --namespace-id $ns.id | ConvertFrom-Json).name)
+      if ($null -eq $domains) {
+        Write-Error 'No domains found in namespace KV_DOMAIN'
+      }
       echo "routes = [" >> wrangler.toml
       for ($i=0; $i -lt $domains.Count; $i++) {
         $domain = $domains[$i]
