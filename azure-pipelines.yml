@@ -23,7 +23,7 @@ jobs:
       command: install
   
   - pwsh: |
-      $ get namespace
+      # get namespace
       $null = wrangler kv:namespace create KV_DOMAIN
       $ns = wrangler kv:namespace list | ConvertFrom-Json | Where-Object title -match 'KV_DOMAIN'
       if ($null -eq $ns) {
