@@ -179,6 +179,13 @@ describe('MTA-STS Worker', () => {
 		assert.equal(body, expectedBody);
 	});
 
+	for (const value of ['null', 'false', '0', '""']) {
+		it(`stored ${value} returns 500`, async () => {
+			const res = await call('https://mta-sts.example.com/.well-known/mta-sts.txt', 'GET', { 'example.com': value });
+			assert.equal(res.status, 500);
+		});
+	}
+
 	it('invalid JSON returns 500', async () => {
 		const store = {
 			'example.com': 'not json',

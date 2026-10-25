@@ -31,15 +31,23 @@ export default {
 		// determine domain name and lookup settings from KV
 		const domainName = hostname.slice(prefix.length);
 		console.log(`Domain: ${domainName}`);
+		// read the raw value so a missing key (404) is distinct from a stored value that isn't a policy (500)
+		let raw;
+		try {
+			raw = await env.KV_DOMAIN.get(domainName);
+		} catch (err) {
+			console.error(`Domain ${domainName} KV read error: ${err.message}`);
+			return emptyResponse(500);
+		}
+		if (raw === null) {
+			return emptyResponse(404);
+		}
 		let domain;
 		try {
-			domain = await env.KV_DOMAIN.get(domainName, { type: 'json' });
+			domain = JSON.parse(raw);
 		} catch (err) {
 			console.error(`Domain ${domainName} KV parse error: ${err.message}`);
 			return emptyResponse(500);
-		}
-		if (!domain) {
-			return emptyResponse(404);
 		}
 
 		// validate domain policy

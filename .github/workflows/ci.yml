@@ -71,7 +71,8 @@ jobs:
             exit 1
           fi
 
-          # key names are written into TOML, so only accept lowercase hostnames of at most 253 characters; check each name in jq,
+          # key names are written into TOML, so only accept lowercase hostnames of at most 245 characters
+          # (mta-sts. plus the key must fit DNS's 253-character limit); check each name in jq,
           # before it is split into lines, and use \A and \z because jq's $ also matches before a newline
           hostname_re='\A([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?\z'
 
@@ -84,7 +85,7 @@ jobs:
               args+=(--data-urlencode "cursor=${cursor}")
             fi
             resp=$(cf "${api}/${ns_id}/keys" "${args[@]}")
-            invalid=$(jq -r --arg re "$hostname_re" '.result[].name | select((test($re) and length <= 253) | not) | @json' <<<"$resp")
+            invalid=$(jq -r --arg re "$hostname_re" '.result[].name | select((test($re) and length <= 245) | not) | @json' <<<"$resp")
             if [ -n "$invalid" ]; then
               echo "::error::KV keys that are not valid lowercase domain names: ${invalid//$'\n'/, }"
               exit 1

@@ -14,10 +14,10 @@ Cloudflare Worker serving MTA-STS policies (RFC 8461) for every domain stored as
 - Bundle check (no Cloudflare credentials needed): `npx wrangler deploy --dry-run --outdir dist`
 
 ## Gotchas
-- `wrangler.toml` holds only the local-dev KV binding. The `[env.prd]` binding and routes are generated in CI (`.github/workflows/ci.yml:54`) from the `KV_NAMESPACE_ID` environment variable and the namespace's keys. Don't commit an `[env.prd]` section and don't deploy from a local machine; deploys happen only on push to `main`.
+- `wrangler.toml` holds only the local-dev KV binding. The `[env.prd]` binding and routes are generated in CI (`.github/workflows/ci.yml:60`) from the `KV_NAMESPACE_ID` environment variable and the namespace's keys. Don't commit an `[env.prd]` section and don't deploy from a local machine; deploys happen only on push to `main`.
 - The production worker is `mta-sts-worker-prd` (wrangler's `<name>-<env>`), and the custom domains are attached to it. Renaming `name` or the `prd` environment would deploy a new, empty worker.
-- KV values are validated per request by `validatePolicy` (`src/index.js:87`). An invalid value returns 500 rather than a broken policy, so keep that function and README.md's format section in sync.
-- Tests call `worker.fetch` directly with a fake KV (`test/index.test.js:8`) whose `get` mimics `{ type: 'json' }` parsing, including throwing on invalid JSON.
+- KV values are validated per request by `validatePolicy` (`src/index.js:95`). An invalid value returns 500 rather than a broken policy, so keep that function and README.md's format section in sync.
+- The worker reads the raw KV value and parses it itself, so a missing key (404) is distinct from a stored value that isn't a policy (500). Tests call `worker.fetch` directly with a fake KV (`test/index.test.js:8`) that returns raw strings.
 - The policy body must use CRLF line endings; the tests assert exact bodies.
 
 ## Development Standards
