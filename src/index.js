@@ -92,7 +92,8 @@ function validatePolicy(domain) {
 	if (mode !== 'enforce' && mode !== 'testing' && mode !== 'none') {
 		return 'invalid mode';
 	}
-	const mx = domain.mx;
+	// mx may be omitted when mode is none
+	const mx = (mode === 'none' && domain.mx === undefined) ? [] : domain.mx;
 	if (!Array.isArray(mx)) {
 		return 'mx is not an array';
 	}

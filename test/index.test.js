@@ -87,6 +87,29 @@ describe('MTA-STS Worker', () => {
 		assert.equal(body, expectedBody);
 	});
 
+	it('mode none with mx omitted returns 200', async () => {
+		const store = {
+			'example.com': JSON.stringify({
+				mode: 'none',
+			}),
+		};
+		const res = await call('https://mta-sts.example.com/.well-known/mta-sts.txt', 'GET', store);
+		assert.equal(res.status, 200);
+		const body = await res.text();
+		const expectedBody = 'version: STSv1\r\nmode: none\r\nmax_age: 604800\r\n';
+		assert.equal(body, expectedBody);
+	});
+
+	it('enforce with mx omitted returns 500', async () => {
+		const store = {
+			'example.com': JSON.stringify({
+				mode: 'enforce',
+			}),
+		};
+		const res = await call('https://mta-sts.example.com/.well-known/mta-sts.txt', 'GET', store);
+		assert.equal(res.status, 500);
+	});
+
 	it('HEAD returns 200 with empty body', async () => {
 		const store = {
 			'example.com': JSON.stringify({

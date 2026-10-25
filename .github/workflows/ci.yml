@@ -71,6 +71,10 @@ jobs:
             exit 1
           fi
 
+          # key names are written into TOML, so only accept lowercase hostnames; check each name in jq,
+          # before it is split into lines, and use \A and \z because jq's $ also matches before a newline
+          hostname_re='\A([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?\z'
+
           # list every domain (key) in the namespace
           domains=()
           cursor=''
@@ -80,6 +84,11 @@ jobs:
               args+=(--data-urlencode "cursor=${cursor}")
             fi
             resp=$(cf "${api}/${ns_id}/keys" "${args[@]}")
+            invalid=$(jq -r --arg re "$hostname_re" '.result[].name | select(test($re) | not) | @json' <<<"$resp")
+            if [ -n "$invalid" ]; then
+              echo "::error::KV keys that are not valid lowercase domain names: ${invalid//$'\n'/, }"
+              exit 1
+            fi
             names=$(jq -r '.result[].name' <<<"$resp")
             if [ -n "$names" ]; then
               mapfile -t -O "${#domains[@]}" domains <<<"$names"
@@ -91,15 +100,6 @@ jobs:
             echo "::error::No domains found in namespace ${ns_id}"
             exit 1
           fi
-
-          # key names are written into TOML, so only accept lowercase hostnames
-          hostname_re='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
-          for domain in "${domains[@]}"; do
-            if ! [[ $domain =~ $hostname_re ]]; then
-              echo "::error::KV key is not a valid lowercase domain name: ${domain}"
-              exit 1
-            fi
-          done
 
           {
             echo
