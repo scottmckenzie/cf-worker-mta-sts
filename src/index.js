@@ -107,6 +107,10 @@ function validatePolicy(domain) {
 		if (!MX_PATTERN.test(entry)) {
 			return `mx entry "${entry}" does not match pattern`;
 		}
+		// DNS names are at most 253 characters, not counting a leading wildcard
+		if (entry.replace(/^\*\./, '').length > 253) {
+			return `mx entry "${entry}" is longer than 253 characters`;
+		}
 	}
 	if ('max_age' in domain) {
 		const age = domain.max_age;

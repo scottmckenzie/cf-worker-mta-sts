@@ -220,6 +220,31 @@ describe('MTA-STS Worker', () => {
 		assert.equal(res.status, 500);
 	});
 
+	// 63 + 1 + 63 + 1 + 63 + 1 + 61 = 253 characters
+	const longMx = `${'a'.repeat(63)}.${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(61)}`;
+
+	it('mx entry of 253 characters returns 200', async () => {
+		const store = {
+			'example.com': JSON.stringify({
+				mode: 'enforce',
+				mx: [longMx, `*.${longMx}`],
+			}),
+		};
+		const res = await call('https://mta-sts.example.com/.well-known/mta-sts.txt', 'GET', store);
+		assert.equal(res.status, 200);
+	});
+
+	it('mx entry of 254 characters returns 500', async () => {
+		const store = {
+			'example.com': JSON.stringify({
+				mode: 'enforce',
+				mx: [`${longMx}e`],
+			}),
+		};
+		const res = await call('https://mta-sts.example.com/.well-known/mta-sts.txt', 'GET', store);
+		assert.equal(res.status, 500);
+	});
+
 	it('mx entry containing newline returns 500', async () => {
 		const store = {
 			'example.com': JSON.stringify({
