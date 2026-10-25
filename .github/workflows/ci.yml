@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # cancel superseded runs on a pull request; runs on main finish so each push can deploy
+    concurrency:
+      group: test-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - name: Check the worker bundles
+        run: npx wrangler deploy --dry-run --outdir dist
+
+  deploy:
+    # only deploy pushes to main, never pull requests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: prd
+    concurrency:
+      group: deploy-prd
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KV_NAMESPACE_ID: ${{ vars.KV_NAMESPACE_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate prd config from KV
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces"
+          cf() {
+            curl -fsS --get -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$@"
+          }
+
+          # the id is written into TOML, so only accept a namespace id
+          ns_id=$KV_NAMESPACE_ID
+          if ! [[ $ns_id =~ ^[0-9a-f]{32}$ ]]; then
+            echo "::error::The prd environment variable KV_NAMESPACE_ID is missing or is not a KV namespace id"
+            exit 1
+          fi
+
+          # list every domain (key) in the namespace
+          domains=()
+          cursor=''
+          while :; do
+            args=(--data-urlencode "limit=1000")
+            if [ -n "$cursor" ]; then
+              args+=(--data-urlencode "cursor=${cursor}")
+            fi
+            resp=$(cf "${api}/${ns_id}/keys" "${args[@]}")
+            names=$(jq -r '.result[].name' <<<"$resp")
+            if [ -n "$names" ]; then
+              mapfile -t -O "${#domains[@]}" domains <<<"$names"
+            fi
+            cursor=$(jq -r '.result_info.cursor // ""' <<<"$resp")
+            [ -n "$cursor" ] || break
+          done
+          if [ "${#domains[@]}" -eq 0 ]; then
+            echo "::error::No domains found in namespace ${ns_id}"
+            exit 1
+          fi
+
+          # key names are written into TOML, so only accept lowercase hostnames
+          hostname_re='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
+          for domain in "${domains[@]}"; do
+            if ! [[ $domain =~ $hostname_re ]]; then
+              echo "::error::KV key is not a valid lowercase domain name: ${domain}"
+              exit 1
+            fi
+          done
+
+          {
+            echo
+            echo '[env.prd]'
+            echo "kv_namespaces = [{ binding = \"KV_DOMAIN\", id = \"${ns_id}\" }]"
+            echo 'routes = ['
+            for domain in "${domains[@]}"; do
+              echo "  { pattern = \"mta-sts.${domain}\", zone_name = \"${domain}\", custom_domain = true },"
+            done
+            echo ']'
+          } >> wrangler.toml
+
+          cat wrangler.toml
+
+      - name: Deploy
+        run: npx wrangler deploy --env prd
