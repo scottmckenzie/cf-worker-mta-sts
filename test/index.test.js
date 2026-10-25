@@ -186,6 +186,31 @@ describe('MTA-STS Worker', () => {
 		});
 	}
 
+	it('KV read failure returns 500 with empty body', async () => {
+		const env = {
+			KV_DOMAIN: {
+				async get() {
+					throw new Error('KV unavailable');
+				},
+			},
+		};
+		const request = new Request('https://mta-sts.example.com/.well-known/mta-sts.txt');
+		const res = await worker.fetch(request, env);
+		assert.equal(res.status, 500);
+		assert.equal(await res.text(), '');
+	});
+
+	it('mx entry that is not a string returns 500', async () => {
+		const store = {
+			'example.com': JSON.stringify({
+				mode: 'enforce',
+				mx: [42],
+			}),
+		};
+		const res = await call('https://mta-sts.example.com/.well-known/mta-sts.txt', 'GET', store);
+		assert.equal(res.status, 500);
+	});
+
 	it('invalid JSON returns 500', async () => {
 		const store = {
 			'example.com': 'not json',
