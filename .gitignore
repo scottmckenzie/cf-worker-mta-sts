@@ -169,3 +169,8 @@ dist
 # wrangler project
 
 .dev.vars
+
+# claude code
+
+.claude/hooks/
+.claude/session
